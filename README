@@ -1,0 +1,10 @@
+Topology Chat Client 1.0 (tchat-1.0)
+
+Copyright(c) 2011 by Christopher Abad
+20 GOTO 10 | twentygoto10.com
+
+git://github.com/aempirei/Topology-Chat-Client.git
+
+You will need Ruby 1.9, as tchat is a ruby program. The reason I had chosen to
+write this in ruby is that it widens the audience that can modify it. This
+software is currently in early development.

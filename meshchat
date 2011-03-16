@@ -90,6 +90,11 @@ rescue Exception => e
 	puts "caught exception " + e.to_s 	
 	exit
 end
+
+while line = sock.gets
+	puts line.chop
+end
+
 # while sockets are ready
 
 	# if readline event

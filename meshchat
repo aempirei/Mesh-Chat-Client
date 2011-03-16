@@ -1,10 +1,89 @@
-#
+#!/usr/bin/ruby
 # Mesh Chat Client 1.0 (meshchat-1.0)
 # Copyright(c) 2011 by Christopher Abad
 # mailto:aempirei@gmail.com
 # aim:goim?screenname=ambient+empire
 # http://www.twentygoto10.com
 # git://github.com/aempirei/Mesh-Chat-Client.git
-#
 
+require 'rubygems'
+require 'getoptlong'
 
+PROGRAM = 'Mesh Chat Client'
+VERSION = '1.0'
+ARG0 = File.basename(__FILE__)
+
+class ZConfig
+
+	DFLSERVER = '127.0.0.1'
+	DFLPORT = 30201
+
+	attr_accessor :server
+	attr_accessor :port
+
+	def initialize
+		@server = DFLSERVER
+		@port = DFLPORT
+	end
+end
+
+$config = ZConfig.new
+
+OPTIONS = [
+	[ [ '--server' , '-s', GetoptLong::REQUIRED_ARGUMENT ], :server, 'server address' ],
+	[ [ '--port'   , '-p', GetoptLong::REQUIRED_ARGUMENT ], :port  , 'server port'    ],
+	[ [ '--help'   , '-h', GetoptLong::NO_ARGUMENT       ], nil    , 'help'           ],
+	[ [ '--version', '-V', GetoptLong::NO_ARGUMENT       ], nil    , 'version'        ]
+]
+
+def usage
+
+	width = 20
+
+	print "\n"
+	
+	version()
+
+	print "\nusage: " + ARG0 + " [options]\n\n"
+
+	OPTIONS.each do |option,arg,desc|
+
+		( long, short, params ) = option
+		
+		str = [ long, short ].compact.join(', ') + ' '
+		str += arg.to_s.upcase unless arg.nil?
+
+		printf("\t%-*s%s", width, str, desc)
+		printf(' (default: %s)', $config.send(arg)) unless arg.nil?
+		print "\n"
+	end
+
+	print "\n"
+
+end
+
+def version
+	puts PROGRAM + ' ' + VERSION
+end
+
+opts = GetoptLong.new(*OPTIONS.map { |x| x.first })
+
+opts.each do |opt,arg|
+	case opt
+		when '--help'
+			usage()
+			exit
+		when '--version'
+			version()
+			exit
+	end
+end
+
+# while sockets are ready
+
+	# if readline event
+		# process readline event
+
+	# for each network socket
+		# read event
+		# process event

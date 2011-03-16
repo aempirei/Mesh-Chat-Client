@@ -8,6 +8,7 @@
 
 require 'rubygems'
 require 'getoptlong'
+require 'socket'
 
 PROGRAM = 'Mesh Chat Client'
 VERSION = '1.0'
@@ -70,6 +71,10 @@ opts = GetoptLong.new(*OPTIONS.map { |x| x.first })
 
 opts.each do |opt,arg|
 	case opt
+		when '--server'
+			$config.server = arg
+		when '--port'
+			$config.port = arg
 		when '--help'
 			usage()
 			exit
@@ -79,6 +84,12 @@ opts.each do |opt,arg|
 	end
 end
 
+begin
+	sock = TCPSocket.open($config.server, $config.port)
+rescue Exception => e
+	puts "caught exception " + e.to_s 	
+	exit
+end
 # while sockets are ready
 
 	# if readline event
@@ -87,3 +98,5 @@ end
 	# for each network socket
 		# read event
 		# process event
+
+sock.close

@@ -9,10 +9,18 @@
 require 'rubygems'
 require 'getoptlong'
 require 'socket'
+require 'etc'
+require 'readline'
 
 PROGRAM = 'Mesh Chat Client'
 VERSION = '1.0'
 ARG0 = File.basename(__FILE__)
+
+#
+# configuration class, which should be used as a singleton through the $config
+# variable. no stupid faux-fancy singleton pattern class, just instantiate it
+# once and dont be a tard
+#
 
 class ZConfig
 
@@ -21,14 +29,50 @@ class ZConfig
 
 	attr_accessor :server
 	attr_accessor :port
+	attr_accessor :sock
 
 	def initialize
 		@server = DFLSERVER
 		@port = DFLPORT
+      @sock = nil
 	end
+
+   def startup
+
+      # register at_exit
+
+      Kernel.at_exit do
+         puts "executing exit proceedure"
+         @sock.close unless @sock.nil?
+      end
+
+      # connect socket
+
+      @sock.close unless @sock.nil?
+
+      begin
+         @sock = TCPSocket.open($config.server, $config.port)
+      rescue Exception => e
+         puts "caught exception " + e.to_s 	
+         exit
+      end
+
+      # register SIGINT handler
+
+      Kernel.trap('INT') do |signo|
+         Kernel.trap(signo, 'SIG_IGN')
+         puts "captured interrupt, exiting"
+         exit
+      end
+
+   end
 end
 
 $config = ZConfig.new
+
+#
+# command-line options definition block
+#
 
 OPTIONS = [
 	[ [ '--server' , '-s', GetoptLong::REQUIRED_ARGUMENT ], :server, 'server address' ],
@@ -36,6 +80,10 @@ OPTIONS = [
 	[ [ '--help'   , '-h', GetoptLong::NO_ARGUMENT       ], nil    , 'help'           ],
 	[ [ '--version', '-V', GetoptLong::NO_ARGUMENT       ], nil    , 'version'        ]
 ]
+
+#
+# the usage function which prints out the usage when --help is invoked
+#
 
 def usage
 
@@ -63,9 +111,17 @@ def usage
 
 end
 
+#
+# the version function which prints the client version when --version or --help is invoked
+#
+
 def version
 	puts PROGRAM + ' ' + VERSION
 end
+
+#
+# proccess the command-line options
+#
 
 opts = GetoptLong.new(*OPTIONS.map { |x| x.first })
 
@@ -84,14 +140,13 @@ opts.each do |opt,arg|
 	end
 end
 
-begin
-	sock = TCPSocket.open($config.server, $config.port)
-rescue Exception => e
-	puts "caught exception " + e.to_s 	
-	exit
-end
+#
+# make socket connection -- this client is pretty basic
+#
 
-while line = sock.gets
+$config.startup
+
+while line = $config.sock.gets
 	puts line.chop
 end
 
@@ -103,5 +158,3 @@ end
 	# for each network socket
 		# read event
 		# process event
-
-sock.close

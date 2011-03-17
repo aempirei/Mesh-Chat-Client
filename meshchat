@@ -22,19 +22,19 @@ ARG0 = File.basename(__FILE__)
 # once and dont be a tard
 #
 
-class ZConfig
+class MeshChat
 
 	DFLSERVER = '127.0.0.1'
 	DFLPORT = 30201
 
 	attr_accessor :server
 	attr_accessor :port
-	attr_accessor :sock
+	attr_accessor :socket
 
 	def initialize
 		@server = DFLSERVER
 		@port = DFLPORT
-      @sock = nil
+      @socket = nil
 	end
 
    def startup
@@ -43,15 +43,15 @@ class ZConfig
 
       Kernel.at_exit do
          puts "executing exit proceedure"
-         @sock.close unless @sock.nil?
+         @socket.close unless @socket.nil?
       end
 
       # connect socket
 
-      @sock.close unless @sock.nil?
+      @socket.close unless @socket.nil?
 
       begin
-         @sock = TCPSocket.open($config.server, $config.port)
+         @socket = TCPSocket.open($mesh.server, $mesh.port)
       rescue Exception => e
          puts "caught exception " + e.to_s 	
          exit
@@ -65,10 +65,47 @@ class ZConfig
          exit
       end
 
+      return true
    end
+
+   def readline_ready?
+      return true
+   end
+
+   def socket_ready?
+      return ( not @socket.nil? )
+   end
+
+   def do_readline
+      line = Readline.readline('> ', true)
+
+      if(line =~ /^\/(\w+)(?:\s+(.*))?$/)
+         command = $1.upcase
+         data = $2
+      else
+         command = 'SAY'
+         data = line
+      end
+
+      printf("COMMAND: %s DATA: %s\n", command, data)
+   end
+
+   def do_socket
+
+      line = @socket.gets.chop
+
+      if(line =~ /^@\s+(\w+)\s+(\d+)\s+(\w+)\s*(?:\s+:(.*))?$/)
+         printf("USERNAME: %s DISTANCE: %d ACTION: %s MESSAGE: %s\n", $1, $2.to_i, $3, $4)
+      elsif(line =~ /^(\d{3})\s+([^:]*)(?:\s+:(.*))?$/)
+         printf("CODE: %s PARAMS: %s MSG: %s\n", $1, $2, $3)
+      else
+         printf("UNKNOWN LINE: %s\n", line)
+      end
+   end
+
 end
 
-$config = ZConfig.new
+$mesh = MeshChat.new
 
 #
 # command-line options definition block
@@ -103,7 +140,7 @@ def usage
 		str += arg.to_s.upcase unless arg.nil?
 
 		printf("\t%-*s%s", width, str, desc)
-		printf(' (default: %s)', $config.send(arg)) unless arg.nil?
+		printf(' (default: %s)', $mesh.send(arg)) unless arg.nil?
 		print "\n"
 	end
 
@@ -128,9 +165,9 @@ opts = GetoptLong.new(*OPTIONS.map { |x| x.first })
 opts.each do |opt,arg|
 	case opt
 		when '--server'
-			$config.server = arg
+			$mesh.server = arg
 		when '--port'
-			$config.port = arg
+			$mesh.port = arg
 		when '--help'
 			usage()
 			exit
@@ -144,21 +181,14 @@ end
 # make socket connection -- this client is pretty basic
 #
 
-$config.startup
+$mesh.startup
 
-while line = Readline.readline('> ', true)
-   p line
+while true
+   if $mesh.readline_ready?
+      $mesh.do_readline
+   end
+
+   if $mesh.socket_ready?
+      $mesh.do_socket
+   end
 end
-
-while line = $config.sock.gets
-	puts line.chop
-end
-
-# while sockets are ready
-
-	# if readline event
-		# process readline event
-
-	# for each network socket
-		# read event
-		# process event

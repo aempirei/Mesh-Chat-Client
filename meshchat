@@ -146,6 +146,10 @@ end
 
 $config.startup
 
+while line = Readline.readline('> ', true)
+   p line
+end
+
 while line = $config.sock.gets
 	puts line.chop
 end

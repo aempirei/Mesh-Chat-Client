@@ -17,9 +17,22 @@ VERSION = '1.0'
 ARG0 = File.basename(__FILE__)
 
 #
-# configuration class, which should be used as a singleton through the $config
-# variable. no stupid faux-fancy singleton pattern class, just instantiate it
-# once and dont be a tard
+# the user class, which represents all the data on other users that can be collected
+#
+
+class User
+	attr_accessor :username
+   attr_accessor :visible
+   attr_accessor :online
+   attr_accessor :idle
+   attr_accessor :age
+   attr_accessor :distance
+   attr_accessor :friend
+   attr_accessor :friend_request
+end
+
+#
+# the MeshChat class should be a singleton class at $mesh which contains all the client state
 #
 
 class MeshChat
@@ -29,12 +42,16 @@ class MeshChat
 
 	attr_accessor :server
 	attr_accessor :port
-	attr_accessor :socket
+
+	attr_reader :socket
+	attr_reader :servername
+	attr_reader :motd
+	attr_reader :users
 
 	def initialize
 		@server = DFLSERVER
 		@port = DFLPORT
-      @socket = nil
+      @users = []
 	end
 
    def startup

@@ -47,11 +47,16 @@ class MeshChat
 	attr_reader :servername
 	attr_reader :motd
 	attr_reader :users
+   attr_reader :width
+   attr_reader :height
+   attr_reader :lines
 
 	def initialize
 		@server = DFLSERVER
 		@port = DFLPORT
       @users = []
+      @width, @height = screensize
+      @lines = []
 	end
 
    def startup
@@ -93,31 +98,88 @@ class MeshChat
       return ( not @socket.nil? )
    end
 
+   def gotoxy(x,y)
+      printf("\33[%d;%dH", y + 1, x + 1)
+   end
+
+   def clreol
+      print "\33[2K"
+   end
+
+   def clrscr
+      print "\33[2J"
+   end
+
+   def pushpos
+      print "\33[s"
+   end
+
+   def poppos
+      print "\33[u"
+   end
+
+   def screensize
+
+      # this way sucks, but oh well
+
+      return [ `tput cols`.to_i, `tput lines`.to_i ]
+   end
+
    def do_readline
-      line = Readline.readline('> ', true)
+
+      line = Readline.readline("\33[#{@height};1H> ", true)
+
+      return if(line.nil? or line.empty?)
 
       if(line =~ /^\/(\w+)(?:\s+(.*))?$/)
+
          command = $1.upcase
-         data = $2
+         data = ($2.nil? ? '' : ' ' + $2)
+         @socket.print(command + ' ' + data + "\n")
+
       else
-         command = 'SAY'
-         data = line
+         @socket.print('SAY :' + line + "\n")
       end
 
-      printf("COMMAND: %s DATA: %s\n", command, data)
    end
 
    def do_socket
 
-      line = @socket.gets.chop
+      line = @socket.gets
+      
+      return if line.nil?
 
-      if(line =~ /^@\s+(\w+)\s+(\d+)\s+(\w+)\s*(?:\s+:(.*))?$/)
-         printf("USERNAME: %s DISTANCE: %d ACTION: %s MESSAGE: %s\n", $1, $2.to_i, $3, $4)
+      line.chop!
+
+      if(line =~ /^@\s+(\w+)\s+(\d+)\s+([^:]*)(?:\s+:(.*))?$/)
+
+         msg = sprintf("USERNAME: %s DISTANCE: %d ACTION: %s MESSAGE: %s\n", $1, $2.to_i, $3, $4)
+
       elsif(line =~ /^(\d{3})\s+([^:]*)(?:\s+:(.*))?$/)
-         printf("CODE: %s PARAMS: %s MSG: %s\n", $1, $2, $3)
+
+         msg = sprintf("CODE: %s PARAMS: %s MSG: %s\n", $1, $2, $3)
+
       else
-         printf("UNKNOWN LINE: %s\n", line)
+
+         msg = sprintf("UNKNOWN LINE: %s\n", line)
+
       end
+
+      @lines << msg
+
+      pushpos
+
+      range = 0...(@height - 1)
+
+      range.each do |lineno|
+         gotoxy(0, @height - 1 - lineno)
+         clreol
+         print @lines[-lineno].slice(0,@width) if not @lines[-lineno].nil?
+      end
+
+      poppos
+
+
    end
 
 end
@@ -200,12 +262,16 @@ end
 
 $mesh.startup
 
-while true
+tl = Thread.new do
+   until $mesh.socket.closed?
+      if $mesh.socket_ready?
+         $mesh.do_socket
+      end
+   end
+end
+
+until $mesh.socket.closed?
    if $mesh.readline_ready?
       $mesh.do_readline
-   end
-
-   if $mesh.socket_ready?
-      $mesh.do_socket
    end
 end

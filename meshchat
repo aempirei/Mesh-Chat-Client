@@ -37,8 +37,11 @@ class MeshCodes
 		"000" => :MCSERVER,
 		"001" => :MCMOTD,
 		"002" => :MCNAME,
+=begin
 		"003" => :MCCREATED,
+=end		
 		"004" => :MCVERIFIED,
+=begin		
 		"051" => :MCNEWUSER,
 		"052" => :MCNEWPASS,
 		"061" => :MCFRIEND,
@@ -50,7 +53,9 @@ class MeshCodes
 		"067" => :MCWHOIS,
 		"080" => :MCBEGIN,
 		"081" => :MCEND,
+=end		
 		"099" => :MCGOODBYE,
+=begin		
 		"101" => :MCPARAMS,
 		"102" => :MCMSG,
 		"103" => :MCCMD,
@@ -61,18 +66,39 @@ class MeshCodes
 		"108" => :MCNODUPES,
 		"109" => :MCUSEROFF,
 		"201" => :MCNEEDUSER,
+=end		
 		"202" => :MCNEEDPASS,
+=begin
 		"203" => :MCLOGIN,
 		"301" => :MCUSER,
 		"302" => :MCPASS,
 		"303" => :MCRESET
+=end		
+		'666' => :WHAT
 	}
 
-	def MCSERVER(msg) ; end
-	def MCMOTD(msg) ; end
-	def MCNAME(msg) ; end
+	def MCSERVER(msg)
+		@version = msg
+		return true
+	end
+
+	def MCMOTD(msg)
+		@motd = msg
+		return true
+	end
+
+	def MCNAME(msg)
+		@servername = msg
+		return true
+	end
+
 	def MCCREATED(msg) ; end
-	def MCVERIFIED(msg) ; end
+
+	def MCVERIFIED(msg)
+		@user.username = msg
+		return true
+	end
+
 	def MCNEWUSER(msg) ; end
 	def MCNEWPASS(msg) ; end
 	def MCFRIEND(msg) ; end
@@ -84,7 +110,12 @@ class MeshCodes
 	def MCWHOIS(msg) ; end
 	def MCBEGIN(msg) ; end
 	def MCEND(msg) ; end
-	def MCGOODBYE(msg) ; end
+
+	def MCGOODBYE(msg)
+		@socket.close
+		return true
+	end
+
 	def MCPARAMS(msg) ; end
 	def MCMSG(msg) ; end
 	def MCCMD(msg) ; end
@@ -95,7 +126,11 @@ class MeshCodes
 	def MCNODUPES(msg) ; end
 	def MCUSEROFF(msg) ; end
 	def MCNEEDUSER(msg) ; end
-	def MCNEEDPASS(msg) ; end
+
+	def MCNEEDPASS(msg)
+		return true
+	end
+
 	def MCLOGIN(msg) ; end
 	def MCUSER(msg) ; end
 	def MCPASS(msg) ; end
@@ -116,8 +151,10 @@ class MeshChat < MeshCodes
 	attr_accessor :server
 	attr_accessor :port
 
+	attr_reader :user
 	attr_reader :socket
 	attr_reader :servername
+	attr_reader :version
 	attr_reader :motd
 	attr_reader :users
    attr_reader :width
@@ -130,8 +167,9 @@ class MeshChat < MeshCodes
 		@server = DFLSERVER
 		@port = DFLPORT
       @users = []
-      @width, @height = screensize
+      @width, @height = screensize()
       @lines = []
+		@user = User.new
 	end
 
    def startup
@@ -139,8 +177,8 @@ class MeshChat < MeshCodes
       # register at_exit
 
       Kernel.at_exit do
-         puts "executing exit proceedure"
-         @socket.close unless @socket.nil?
+         puts "exiting"
+         @socket.close unless ( @socket.nil? or @socket.closed? )
       end
 
       # connect socket
@@ -162,11 +200,13 @@ class MeshChat < MeshCodes
          exit
       end
 
+		print CLRSCR
+
       return true
    end
 
    def readline_ready?
-      return true
+      return true 
    end
 
    def socket_ready?
@@ -177,13 +217,33 @@ class MeshChat < MeshCodes
       printf("\33[%d;%dH", y + 1, x + 1)
    end
 
-   def clreol
-      print "\33[2K"
-   end
+	CLRLIN = "\33[2K"
+	CLREOL = "\33[K"
+	CLRSCR = "\33[2J"
+	CLRFMT = "\33[0m"
 
-   def clrscr
-      print "\33[2J"
-   end
+	def fgcolor(fg)
+		codes = []
+		codes << 1 if(fg >= 8)
+		codes << 30 + (fg & 7)
+		return sprintf("\33[%sm", codes.join(';'))
+	end
+
+	def bgcolor(bg)
+		codes = []
+		codes << 5 if(bg >= 8)
+		codes << 40 + (bg & 7)
+		return sprintf("\33[%sm", codes.join(';'))
+	end
+
+	def color(fg,bg)
+		codes = []
+		codes << 1 if(fg >= 8)
+		codes << 5 if(bg >= 8)
+		codes << 40 + (bg & 7)
+		codes << 30 + (fg & 7)
+		return sprintf("\33[%sm", codes.join(';'))
+	end
 
    def pushpos
       print "\33[s"
@@ -218,19 +278,14 @@ class MeshChat < MeshCodes
 
    end
 
-	def set_header
-	end
-
-	def set_footer
-	end
-
 	def do_code(code,codestr,codemsg)
 
 			if(CODEMAP.has_key? code)
-				add_line "HAS #{code} AT #{CODEMAP[map]}"
-				# CODEMAP[code].call(codestr, codemsg)
+				if send(CODEMAP[code], codemsg)
+					add_line sprintf("%s%s",codestr, codemsg.nil? ? '' : " (#{codemsg})")
+				end
 			else
-         	add_line sprintf("UNKNOWN CODE: %s \"%s\" MSG: %s\n", code, codestr, codemsg)
+        		add_line sprintf("UNKNOWN CODE: %s \"%s\" MSG: %s", code, codestr, codemsg)
 			end
 	end
 
@@ -244,7 +299,7 @@ class MeshChat < MeshCodes
 
       if(line =~ /^@\s+(\w+)\s+(\d+)\s+([^:]*)(?:\s+:(.*))?$/)
 
-         add_line sprintf("USERNAME: %s DISTANCE: %d ACTION: %s MESSAGE: %s\n", $1, $2.to_i, $3, $4)
+         add_line sprintf("USERNAME: %s DISTANCE: %d ACTION: %s MESSAGE: %s", $1, $2.to_i, $3, $4)
 
       elsif(line =~ /^(\d{3})\s+([^:]*)(?:\s+:(.*))?$/)
 
@@ -254,7 +309,7 @@ class MeshChat < MeshCodes
 
       else
 
-         add_line sprintf("UNKNOWN LINE: %s\n", line)
+         add_line sprintf("UNKNOWN LINE: %s", line)
 
       end
 
@@ -264,24 +319,49 @@ class MeshChat < MeshCodes
 
 	def add_line(line)
 
-		@lines << line
+		@lines.unshift line.chomp
 
-		@lines = @lines.slice(-MAXLINE, MAXLINES) if @lines.size > MAXLINES
+		@lines = @lines.slice(0, MAXLINES) if @lines.size > MAXLINES
+	end
+
+	def refresh_header
+
+		gotoxy(0,0)
+
+		printf(" %s ~ %s" + CLREOL, @servername, @motd)
+	end
+
+	def refresh_footer
+
+		gotoxy(0,@height - 2)
+
+		printf(" %s ~ %s:%s ~ %s" + CLREOL, @user.username, @server, @port, @version)
 	end
 
 	def refresh
 
       pushpos
 
-      range = 0...(@height - 1)
+		refresh_header
 
-      range.each do |lineno|
-         gotoxy(0, @height - 1 - lineno)
-         clreol
-         print @lines[-lineno].slice(0,@width) if not @lines[-lineno].nil?
+		refresh_footer
+
+      range = 1..(@height - 3)
+
+      range.each do |rowno|
+         gotoxy(0, rowno)
+
+			lineno = (@height - 3) - rowno
+
+			line = sprintf("%02d: %s", rowno, @lines[lineno].nil? ? '' : @lines[lineno])
+			line = line.slice(0,@width)
+			print line + CLREOL
       end
 
       poppos
+
+		STDOUT.flush
+
 	end
 
 end
@@ -370,6 +450,8 @@ tl = Thread.new do
          $mesh.do_socket
       end
    end
+
+	exit
 end
 
 until $mesh.socket.closed?

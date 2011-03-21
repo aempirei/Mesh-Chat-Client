@@ -41,9 +41,9 @@ class MeshCodes
 		"003" => :MCCREATED,
 =end		
 		"004" => :MCVERIFIED,
-=begin		
 		"051" => :MCNEWUSER,
 		"052" => :MCNEWPASS,
+=begin		
 		"061" => :MCFRIEND,
 		"062" => :MCREQUEST,
 		"063" => :MCANTI,
@@ -71,10 +71,9 @@ class MeshCodes
 =begin
 		"203" => :MCLOGIN,
 		"301" => :MCUSER,
+=end		
 		"302" => :MCPASS,
 		"303" => :MCRESET
-=end		
-		'666' => :WHAT
 	}
 
 	def MCSERVER(msg)
@@ -99,8 +98,14 @@ class MeshCodes
 		return true
 	end
 
-	def MCNEWUSER(msg) ; end
-	def MCNEWPASS(msg) ; end
+	def MCNEWUSER(msg)
+		return true
+	end
+
+	def MCNEWPASS(msg)
+		return true
+	end
+
 	def MCFRIEND(msg) ; end
 	def MCREQUEST(msg) ; end
 	def MCANTI(msg) ; end
@@ -133,8 +138,12 @@ class MeshCodes
 
 	def MCLOGIN(msg) ; end
 	def MCUSER(msg) ; end
-	def MCPASS(msg) ; end
-	def MCRESET(msg) ; end
+	def MCPASS(msg)
+		return true
+	end
+	def MCRESET(msg)
+		return true
+	end
 
 end
 
@@ -340,18 +349,20 @@ class MeshChat < MeshCodes
 
 	def refresh
 
+		maxlineno = @height - 3
+
       pushpos
 
 		refresh_header
 
 		refresh_footer
 
-      range = 1..(@height - 3)
+      range = 1..maxlineno
 
       range.each do |rowno|
          gotoxy(0, rowno)
 
-			lineno = (@height - 3) - rowno
+			lineno = maxlineno - rowno
 
 			line = sprintf("%02d: %s", rowno, @lines[lineno].nil? ? '' : @lines[lineno])
 			line = line.slice(0,@width)
@@ -445,6 +456,7 @@ end
 $mesh.startup
 
 tl = Thread.new do
+
    until $mesh.socket.closed?
       if $mesh.socket_ready?
          $mesh.do_socket

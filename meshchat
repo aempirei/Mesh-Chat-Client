@@ -343,7 +343,7 @@ class MeshChat < MeshCodes
 
    def do_readline
 
-      line = Readline.readline("\33[#{@height};1H" + CLRLIN + "> ", true)
+      line = Readline.readline("\33[#{@height};1H#{CLRLIN}> ", true)
 
       return if(line.nil? or line.empty?)
 

@@ -219,6 +219,8 @@ CLREOL = "\33[K"
 CLRSCR = "\33[2J"
 CLRFMT = "\33[0m"
 BOLD = "\33[1m"
+CURON = "\33[?25h"
+CUROFF = "\033[?25l"
 
 class MeshChat < MeshCodes
 
@@ -260,6 +262,7 @@ class MeshChat < MeshCodes
       Kernel.at_exit do
          puts "exiting"
          @socket.close unless ( @socket.nil? or @socket.closed? )
+			print "\33[r" + CLRFMT + CLRSCR
       end
 
       # connect socket
@@ -282,6 +285,8 @@ class MeshChat < MeshCodes
       end
 
 		print CLRSCR
+
+		print "\33[1;#{@height-1}r"
 
       return true
    end
@@ -338,7 +343,7 @@ class MeshChat < MeshCodes
 
    def do_readline
 
-      line = Readline.readline("\33[#{@height};1H> ", true)
+      line = Readline.readline("\33[#{@height};1H" + CLRLIN + "> ", true)
 
       return if(line.nil? or line.empty?)
 
@@ -453,6 +458,8 @@ class MeshChat < MeshCodes
 
       pushpos
 
+		print CUROFF
+
 		refresh_header
 
 		refresh_footer
@@ -470,6 +477,8 @@ class MeshChat < MeshCodes
       end
 
       poppos
+
+		print CURON
 
 		STDOUT.flush
 

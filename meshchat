@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 # Mesh Chat Client 1.0 (meshchat-1.0)
 # Copyright(c) 2011 by Christopher Abad
 # mailto:aempirei@gmail.com

@@ -204,7 +204,9 @@ class MeshCodes
 	def MCUSER(msg) ; end
 	def MCPASS(msg) ; end
 	def MCRESET(msg) ; end
-	def MCHELP(msg) ; end
+	def MCHELP(msg)
+		return handle_group( __method__, [msg, false] )
+	end
 
 end
 

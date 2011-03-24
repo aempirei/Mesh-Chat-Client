@@ -286,7 +286,7 @@ class MeshChat < MeshCodes
 
 		print CLRSCR
 
-		print "\33[1;#{@height-1}r"
+		print "\33[2;#{@height-2}r"
 
       return true
    end
@@ -429,7 +429,27 @@ class MeshChat < MeshCodes
 
 	def add_line(line)
 
-		@lines.unshift line.chomp
+		line.chomp!
+
+		maxlineno = @height - 3
+
+      pushpos
+
+      print CUROFF
+
+      gotoxy(0, maxlineno)
+
+      print "\33" + "D"
+
+      print line
+
+      poppos
+
+		print CURON
+
+		STDOUT.flush
+
+		@lines.unshift line
 
 		@lines = @lines.slice(0, MAXLINES) if @lines.size > MAXLINES
 	end
@@ -464,6 +484,7 @@ class MeshChat < MeshCodes
 
 		refresh_footer
 
+=begin
       range = 1..maxlineno
 
       range.each do |rowno|
@@ -475,7 +496,7 @@ class MeshChat < MeshCodes
 			line = line.slice(0,@width)
 			print line + CLREOL
       end
-
+=end
       poppos
 
 		print CURON

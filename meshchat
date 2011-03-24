@@ -431,14 +431,18 @@ class MeshChat < MeshCodes
 
 		gotoxy(0,0)
 
-		printf(" %s ~ %s" + CLREOL, @servername, @motd)
+		header_str = sprintf(" %s ~ %s" + CLREOL, @servername, @motd)
+
+		printf("%s%-*s%s", color(0,5), @width, header_str, CLRFMT)
 	end
 
 	def refresh_footer
 
 		gotoxy(0,@height - 2)
 
-		printf(" %s ~ %s:%s ~ %s" + CLREOL, @user.username, @server, @port, @version)
+		footer_str = sprintf(" %s ~ %s:%s ~ %s" + CLREOL, @user.username, @server, @port, @version)
+
+		printf("%s%-*s%s", color(0,5), @width, footer_str, CLRFMT)
 	end
 
 	def refresh

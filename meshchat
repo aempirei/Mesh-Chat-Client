@@ -37,13 +37,10 @@ class MeshCodes
 		"000" => :MCSERVER,
 		"001" => :MCMOTD,
 		"002" => :MCNAME,
-=begin
 		"003" => :MCCREATED,
-=end		
 		"004" => :MCVERIFIED,
 		"051" => :MCNEWUSER,
 		"052" => :MCNEWPASS,
-=begin		
 		"061" => :MCFRIEND,
 		"062" => :MCREQUEST,
 		"063" => :MCANTI,
@@ -51,13 +48,11 @@ class MeshCodes
 		"065" => :MCRREQUEST,
 		"066" => :MCRANTI,
 		"067" => :MCWHOIS,
+		"070" => :MCHELP,
 		"080" => :MCBEGIN,
 		"081" => :MCEND,
-=end		
 		"099" => :MCGOODBYE,
-=begin		
 		"101" => :MCPARAMS,
-		"102" => :MCMSG,
 		"103" => :MCCMD,
 		"104" => :MCUSERINV,
 		"105" => :MCUNIMPL,
@@ -66,59 +61,132 @@ class MeshCodes
 		"108" => :MCNODUPES,
 		"109" => :MCUSEROFF,
 		"201" => :MCNEEDUSER,
-=end		
 		"202" => :MCNEEDPASS,
-=begin
 		"203" => :MCLOGIN,
 		"301" => :MCUSER,
-=end		
 		"302" => :MCPASS,
 		"303" => :MCRESET
 	}
 
+	REVERSEMAP = CODEMAP.invert
+
+	OPTIONAL = [ :MCREQUEST, :MCRREQUEST ]
+
+	attr_reader :buffers
+
+	def initialize
+		@buffers = {}
+	end
+
 	def MCSERVER(msg)
 		@version = msg
-		return true
 	end
 
 	def MCMOTD(msg)
 		@motd = msg
-		return true
 	end
 
 	def MCNAME(msg)
 		@servername = msg
-		return true
 	end
 
 	def MCCREATED(msg) ; end
 
 	def MCVERIFIED(msg)
 		@user.username = msg
-		return true
 	end
 
-	def MCNEWUSER(msg)
-		return true
+	def MCNEWUSER(msg) ; end
+	def MCNEWPASS(msg) ; end
+
+	def handle_group(method, pair)
+	 	if @buffers.has_key? REVERSEMAP[method]
+			@buffers[REVERSEMAP[method]] << pair
+			return false
+		else
+			return true
+		end
 	end
 
-	def MCNEWPASS(msg)
-		return true
+	def MCFRIEND(msg)
+		return handle_group( __method__, [msg, false] )
 	end
 
-	def MCFRIEND(msg) ; end
-	def MCREQUEST(msg) ; end
+	def MCREQUEST(msg)
+		return handle_group( __method__, [msg, false] )
+	end
+
 	def MCANTI(msg) ; end
-	def MCDISTANCE(msg) ; end
-	def MCRREQUEST(msg) ; end
+
+	def MCDISTANCE(msg)
+		return handle_group( __method__, msg.split(/\s+/, 2).reverse )
+	end
+
+	def MCRREQUEST(msg)
+		return handle_group( __method__, [msg, false] )
+	end
+
 	def MCRANTI(msg) ; end
-	def MCWHOIS(msg) ; end
-	def MCBEGIN(msg) ; end
-	def MCEND(msg) ; end
+
+	def MCWHOIS(msg)
+		return handle_group( __method__,  msg.split(/\s+/, 2) )
+	end
+
+	def MCBEGIN(msg)
+		@buffers[msg] = []
+		return false
+	end
+
+	def MCEND(msg)
+
+		if @buffers.has_key? msg
+
+			if @buffers[msg].empty? and ( OPTIONAL.member? CODEMAP[msg] )
+
+				# dont bother showing anything if this block is optional
+
+			else
+
+				maxparam = @buffers[msg].map { |k,v| k.length }.max
+
+				maxparam ||= 0
+
+				lines = @buffers[msg].map do |k,v|
+					if v == false
+						k
+					else
+						sprintf("%*s: %s", maxparam, k, v)
+					end
+				end
+
+				header = sprintf(fgcolor(5)+"--[#{CLRFMT} %s "+fgcolor(5)+"]#{CLRFMT}", CODEMAP[msg].to_s.match(/^MC(.*)/)[1].downcase)
+
+				hl = header.length - 2 * (fgcolor(5) + CLRFMT).length
+		
+				width = ( lines.map { |x| x.length } + [15, hl] ).max
+
+				header += fgcolor(5) + ( '-' * (width - hl) ) + CLRFMT
+
+				footer = fgcolor(5) + '-' * width + CLRFMT
+
+				header = fgcolor(5) + header + CLRFMT
+
+				add_line header
+
+				lines.each { |x| add_line x }
+
+				add_line footer
+
+			end
+
+			@buffers.delete msg
+
+			return false
+		end
+	end
 
 	def MCGOODBYE(msg)
 		@socket.close
-		return true
 	end
 
 	def MCPARAMS(msg) ; end
@@ -131,25 +199,24 @@ class MeshCodes
 	def MCNODUPES(msg) ; end
 	def MCUSEROFF(msg) ; end
 	def MCNEEDUSER(msg) ; end
-
-	def MCNEEDPASS(msg)
-		return true
-	end
-
+	def MCNEEDPASS(msg) ; end
 	def MCLOGIN(msg) ; end
 	def MCUSER(msg) ; end
-	def MCPASS(msg)
-		return true
-	end
-	def MCRESET(msg)
-		return true
-	end
+	def MCPASS(msg) ; end
+	def MCRESET(msg) ; end
+	def MCHELP(msg) ; end
 
 end
 
 #
 # the MeshChat class should be a singleton class at $mesh which contains all the client state
 #
+
+CLRLIN = "\33[2K"
+CLREOL = "\33[K"
+CLRSCR = "\33[2J"
+CLRFMT = "\33[0m"
+BOLD = "\33[1m"
 
 class MeshChat < MeshCodes
 
@@ -173,6 +240,9 @@ class MeshChat < MeshCodes
 	attr_reader :code_procs
 
 	def initialize
+
+		super
+
 		@server = DFLSERVER
 		@port = DFLPORT
       @users = []
@@ -225,11 +295,6 @@ class MeshChat < MeshCodes
    def gotoxy(x,y)
       printf("\33[%d;%dH", y + 1, x + 1)
    end
-
-	CLRLIN = "\33[2K"
-	CLREOL = "\33[K"
-	CLRSCR = "\33[2J"
-	CLRFMT = "\33[0m"
 
 	def fgcolor(fg)
 		codes = []
@@ -290,12 +355,39 @@ class MeshChat < MeshCodes
 	def do_code(code,codestr,codemsg)
 
 			if(CODEMAP.has_key? code)
-				if send(CODEMAP[code], codemsg)
+				unless send(CODEMAP[code], codemsg) === false
 					add_line sprintf("%s%s",codestr, codemsg.nil? ? '' : " (#{codemsg})")
 				end
 			else
         		add_line sprintf("UNKNOWN CODE: %s \"%s\" MSG: %s", code, codestr, codemsg)
 			end
+	end
+
+	def hue(distance)
+		return case distance
+			when 0
+				fgcolor(4 + 8)
+			when 1
+				fgcolor(7 + 8)
+			when 2
+				fgcolor(7)
+			when 3
+				fgcolor(0 + 8)
+			else
+		end
+	end
+
+	def do_action(username,distance,action,message)
+
+		username = fgcolor(3 + 8) + username + CLRFMT if username == @user.username
+
+		case action
+			when 'say'
+				add_line sprintf("%s" + fgcolor(2) + ":" + CLRFMT + " %s%s" + CLRFMT, username, hue(distance), message)
+			else
+				add_line sprintf("%s by %s %s%s" + CLRFMT, action, username, hue(distance), message)
+		end	
+
 	end
 
    def do_socket
@@ -306,9 +398,11 @@ class MeshChat < MeshCodes
 
       line.chop!
 
-      if(line =~ /^@\s+(\w+)\s+(\d+)\s+([^:]*)(?:\s+:(.*))?$/)
+      if(line =~ /^@\s+(\w+)\s+(\d+)\s+(.*?)\s*(?::(.*))?$/)
 
-         add_line sprintf("USERNAME: %s DISTANCE: %d ACTION: %s MESSAGE: %s", $1, $2.to_i, $3, $4)
+			username,distance,action,message = $1, $2.to_i, $3, $4
+
+			do_action(username,distance,action,message)
 
       elsif(line =~ /^(\d{3})\s+([^:]*)(?:\s+:(.*))?$/)
 

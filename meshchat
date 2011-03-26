@@ -96,7 +96,10 @@ class MeshCodes
 		@user.username = msg
 	end
 
-	def MCNEWUSER(msg) ; end
+	def MCNEWUSER(msg)
+		@user.username = msg
+	end
+
 	def MCNEWPASS(msg) ; end
 
 	def handle_group(method, pair)
@@ -159,7 +162,7 @@ class MeshCodes
 					end
 				end
 
-				header = sprintf(fgcolor(5)+"--[#{CLRFMT} %s "+fgcolor(5)+"]#{CLRFMT}", CODEMAP[msg].to_s.match(/^MC(.*)/)[1].downcase)
+				header = sprintf("%s--[%s %s %s]%s", fgcolor(5), CLRFMT, CODEMAP[msg].to_s.match(/^MC(.*)/)[1].downcase, fgcolor(5), CLRFMT)
 
 				hl = header.length - 2 * (fgcolor(5) + CLRFMT).length
 		
@@ -220,7 +223,9 @@ CLRSCR = "\33[2J"
 CLRFMT = "\33[0m"
 BOLD = "\33[1m"
 CURON = "\33[?25h"
-CUROFF = "\033[?25l"
+CUROFF = "\33[?25l"
+SCROLL = "\33" + 'D'
+CLRSCROLL = "\33[r"
 
 class MeshChat < MeshCodes
 
@@ -250,20 +255,12 @@ class MeshChat < MeshCodes
 		@server = DFLSERVER
 		@port = DFLPORT
       @users = []
-      @width, @height = screensize()
       @lines = []
 		@user = User.new
+      @width, @height = screensize
 	end
 
    def startup
-
-      # register at_exit
-
-      Kernel.at_exit do
-         puts "exiting"
-         @socket.close unless ( @socket.nil? or @socket.closed? )
-			print "\33[r" + CLRFMT + CLRSCR
-      end
 
       # connect socket
 
@@ -276,17 +273,23 @@ class MeshChat < MeshCodes
          exit
       end
 
+      # register at_exit
+
+      Kernel.at_exit do
+         add_line "exiting"
+         @socket.close unless ( @socket.nil? or @socket.closed? )
+			 print CLRSCROLL + CLRFMT + posxy(0,@height-1) + CLREOL
+      end
+
       # register SIGINT handler
 
       Kernel.trap('INT') do |signo|
          Kernel.trap(signo, 'SIG_IGN')
-         puts "captured interrupt, exiting"
+         add_line "captured interrupt, exiting"
          exit
       end
 
-		print CLRSCR
-
-		print "\33[2;#{@height-2}r"
+		print CLRSCR + setscroll(2, @height - 2)
 
       return true
    end
@@ -299,31 +302,43 @@ class MeshChat < MeshCodes
       return ( not @socket.nil? )
    end
 
+	def escapecode(values, ch)
+		return sprintf("\33[%s%s", values.join(';'), ch)
+	end
+
+	def posxy(x,y)
+		return escapecode([y+1,x+1], 'H')
+	end
+
    def gotoxy(x,y)
-      printf("\33[%d;%dH", y + 1, x + 1)
+		print posxy(x,y)
    end
 
 	def fgcolor(fg)
 		codes = []
 		codes << 1 if(fg >= 8)
-		codes << 30 + (fg & 7)
-		return sprintf("\33[%sm", codes.join(';'))
+		codes << 30 + (fg % 8)
+		return escapecode(codes, 'm')
 	end
 
 	def bgcolor(bg)
 		codes = []
 		codes << 5 if(bg >= 8)
-		codes << 40 + (bg & 7)
-		return sprintf("\33[%sm", codes.join(';'))
+		codes << 40 + (bg % 8)
+		return escapecode(codes, 'm')
+	end
+
+	def setscroll(first, last)
+		return escapecode([first,last], 'r')
 	end
 
 	def color(fg,bg)
 		codes = []
 		codes << 1 if(fg >= 8)
 		codes << 5 if(bg >= 8)
-		codes << 40 + (bg & 7)
-		codes << 30 + (fg & 7)
-		return sprintf("\33[%sm", codes.join(';'))
+		codes << 40 + (bg % 8)
+		codes << 30 + (fg % 8)
+		return escapecode(codes, 'm')
 	end
 
    def pushpos
@@ -343,7 +358,7 @@ class MeshChat < MeshCodes
 
    def do_readline
 
-      line = Readline.readline("\33[#{@height};1H#{CLRLIN}> ", true)
+      line = Readline.readline(posxy(0, @height-1) + CLRLIN + '> ', true)
 
       return if(line.nil? or line.empty?)
 
@@ -401,7 +416,11 @@ class MeshChat < MeshCodes
 
       line = @socket.gets
       
-      return if line.nil?
+      if line.nil?
+			add_line "server disconnected"
+			@socket.close
+			return false
+		end
 
       line.chop!
 
@@ -425,9 +444,13 @@ class MeshChat < MeshCodes
 
 		refresh
 
+		return true
+
    end
 
 	def add_line(line)
+
+		refresh
 
 		line.chomp!
 
@@ -439,7 +462,7 @@ class MeshChat < MeshCodes
 
       gotoxy(0, maxlineno)
 
-      print "\33" + "D"
+		print SCROLL
 
       print line
 
@@ -484,19 +507,6 @@ class MeshChat < MeshCodes
 
 		refresh_footer
 
-=begin
-      range = 1..maxlineno
-
-      range.each do |rowno|
-         gotoxy(0, rowno)
-
-			lineno = maxlineno - rowno
-
-			line = sprintf("%02d: %s", rowno, @lines[lineno].nil? ? '' : @lines[lineno])
-			line = line.slice(0,@width)
-			print line + CLREOL
-      end
-=end
       poppos
 
 		print CURON
@@ -589,7 +599,7 @@ tl = Thread.new do
 
    until $mesh.socket.closed?
       if $mesh.socket_ready?
-         $mesh.do_socket
+			$mesh.do_socket
       end
    end
 
